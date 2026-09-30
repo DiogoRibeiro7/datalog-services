@@ -8,6 +8,7 @@ import { createApp } from "./app.js";
 import { rootRoutes as authRootRoutes } from "./auth.js";
 import { readConfig } from "./config.js";
 import { routes as comments } from "./features/comments.js";
+import { rootRoutes as conformanceRootRoutes } from "./features/conformance.js";
 import { routes as contact } from "./features/contact.js";
 import { routes as corrections } from "./features/corrections.js";
 import { routes as moderation } from "./features/moderation.js";
@@ -19,8 +20,12 @@ import { createMailer, mailProblem } from "./mail.js";
 /** The feature routes under /v1, in the order they are matched. */
 export const ROUTES = [...comments, ...reactions, ...corrections, ...contact, ...subscriptions, ...webmentions, ...moderation];
 
-/** The routes outside /v1: the Webmention receiver, the one-click unsubscribe and the moderators' sign-in. */
-export const ROOT_ROUTES = [...webmentionRootRoutes, ...subscriptionRootRoutes, ...authRootRoutes];
+/**
+ * The routes outside /v1: the Webmention receiver, the one-click unsubscribe,
+ * the moderators' sign-in, and the conformance suite's test hooks, which
+ * answer 404 unless CONFORMANCE_TOKEN is set.
+ */
+export const ROOT_ROUTES = [...webmentionRootRoutes, ...subscriptionRootRoutes, ...authRootRoutes, ...conformanceRootRoutes];
 
 /**
  * @param {Object} options - As createApp's: `db`, `env`, `now`, `log`, and

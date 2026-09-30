@@ -56,8 +56,23 @@ service share a registrable domain, set `COOKIE_DOMAIN` and
 `COOKIE_SAMESITE=Lax`: browsers that block third-party cookies (Safari,
 Firefox's strict mode) then keep the session.
 
-The OpenAPI description, the conformance suite and the deployment guide
-arrive in the next pull requests.
+## The contract, described and checked
+
+- **[`openapi/datalog-services.v1.yaml`](openapi/datalog-services.v1.yaml)**:
+  the contract as OpenAPI 3.1: every route, status, header and body. A test
+  keeps it valid and holds it to the routes the service has, in both
+  directions.
+- **[`conformance/`](conformance/README.md)**: a suite that checks any
+  implementation at a base URL against the contract and validates each answer
+  against the OpenAPI schemas. It passes against this service, with every
+  recommended check too, and fails against `test/fixtures/broken-service.js`,
+  naming each of its faults; `test/conformance.test.js` runs both.
+
+```sh
+npm run conformance -- --base-url https://api.example.org --origin https://example.org
+```
+
+The deployment guide arrives in the next pull request.
 
 ## Run it locally
 
