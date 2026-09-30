@@ -72,7 +72,27 @@ Firefox's strict mode) then keep the session.
 npm run conformance -- --base-url https://api.example.org --origin https://example.org
 ```
 
-The deployment guide arrives in the next pull request.
+## Deploy it
+
+**[docs/deploy-cloudflare.md](docs/deploy-cloudflare.md)** deploys the service
+as a Cloudflare Worker with a D1 database, on Cloudflare's free plan, with no
+server to run. It covers the secrets, the site's origin, the moderators'
+sign-in, mail, spam controls, retention and deletion, and what to put in the
+site's `dynamic_services` afterwards. `src/worker.js` is the entry point, and
+`wrangler.toml` holds the public settings and never a secret. A daily cron
+trigger forgets what the retention settings say.
+
+Two scripts exercise the deployment target on this machine, with nothing
+deployed:
+
+```sh
+npm run conformance:worker                             # the suite against the Worker in workerd, with a local D1
+npm run e2e:theme -- --theme ../analytics-blog-jekyll  # the theme's demo against it, in a browser
+```
+
+The second builds the theme's own demo with only `dynamic_services.base_url`
+pointing at the Worker. It then posts a comment, approves it, reacts and sends
+a correction report through Chromium.
 
 ## Run it locally
 
@@ -101,7 +121,8 @@ gets, in order: a request id, the origin check, the preflight answer, its
 route and the feature switch, for a write the JSON body and the idempotency
 key, the rate limit, and the handler.
 
-Every setting is an environment variable; `.dev.vars.example` lists them.
+Every setting is an environment variable; `.dev.vars.example` lists them,
+and the deployment guide explains them.
 Secrets never go in the repository: locally they live in `.dev.vars`, which
 Git ignores.
 

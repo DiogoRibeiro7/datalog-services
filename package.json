@@ -13,7 +13,10 @@
     "test": "node --disable-warning=ExperimentalWarning --test \"test/**/*.test.js\"",
     "lint": "eslint .",
     "conformance": "node --disable-warning=ExperimentalWarning conformance/cli.js",
-    "conformance:reference": "node --disable-warning=ExperimentalWarning test/fixtures/run-reference.js"
+    "conformance:reference": "node --disable-warning=ExperimentalWarning test/fixtures/run-reference.js",
+    "conformance:worker": "node --disable-warning=ExperimentalWarning scripts/worker-conformance.js",
+    "e2e:theme": "node --disable-warning=ExperimentalWarning scripts/theme-e2e.js",
+    "deploy": "wrangler deploy"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -22,6 +25,8 @@
     "ajv-formats": "^3.0.1",
     "eslint": "^10.11.0",
     "globals": "^17.12.0",
+    "playwright": "^1.63.0",
+    "wrangler": "^4.144.0",
     "yaml": "^2.9.1"
   }
 }
