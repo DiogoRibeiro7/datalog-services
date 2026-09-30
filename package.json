@@ -1,0 +1,21 @@
+{
+  "name": "datalog-services",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Reference backend and conformance suite for the DataLog theme's dynamic-services contract",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "node --disable-warning=ExperimentalWarning bin/serve.js",
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/**/*.test.js\"",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.11.0",
+    "globals": "^17.12.0"
+  }
+}
