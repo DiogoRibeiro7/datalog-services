@@ -51,3 +51,15 @@ FEATURES=comments,reactions,corrections
 
 # Tests only: let the Webmention verifier fetch loopback and private addresses.
 # WEBMENTION_ALLOW_PRIVATE=false
+
+# Moderation: sign-in with a GitHub OAuth app whose callback is
+# <service>/auth/callback. The secret is a secret: `wrangler secret put
+# GITHUB_CLIENT_SECRET` on Cloudflare, this file locally.
+# GITHUB_CLIENT_ID=
+# GITHUB_CLIENT_SECRET=
+# MODERATORS=your-github-login
+# SESSION_HOURS=8
+# When the service shares a registrable domain with the site (api.example.org
+# for example.org), keep the session first-party:
+# COOKIE_DOMAIN=.example.org
+# COOKIE_SAMESITE=Lax

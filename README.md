@@ -41,8 +41,23 @@ Mail goes through [Resend](https://resend.com) (`MAIL_PROVIDER=resend`, with
 the `RESEND_API_KEY` secret and `MAIL_FROM`) or, for development and the
 conformance suite, into an `outbox` table (`MAIL_PROVIDER=outbox`).
 
-The moderation inbox, the OpenAPI description, the conformance suite and the
-deployment guide arrive in the next pull requests.
+And the one feature for the site's owner:
+
+| Feature | Routes | Notes |
+| --- | --- | --- |
+| moderation | `GET /v1/moderation/items`, `POST /v1/moderation/items/:id/actions` | The queue of pending comments, open correction reports and readers' reports on comments, with the theme's filters and a cursor; the actions of the theme's table, a 409 for any other; every action recorded with the moderator the session names |
+| sign-in | `GET /auth/login`, `GET /auth/callback`, `POST /auth/logout` | Moderators sign in with GitHub; the logins in `MODERATORS` may moderate, anyone else gets a 403 |
+
+The session is a cookie the service signs (`HttpOnly; Secure`, eight hours,
+`SameSite=None` since the site is usually on another domain). A moderation
+write must come from the site's origin and, with `CSRF_HEADER` and
+`CSRF_COOKIE` set, echo the CSRF cookie in the header. When the site and the
+service share a registrable domain, set `COOKIE_DOMAIN` and
+`COOKIE_SAMESITE=Lax`: browsers that block third-party cookies (Safari,
+Firefox's strict mode) then keep the session.
+
+The OpenAPI description, the conformance suite and the deployment guide
+arrive in the next pull requests.
 
 ## Run it locally
 
