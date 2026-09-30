@@ -33,11 +33,16 @@ And the features readers use:
 | comments (extension) | `POST /v1/comments/:id/reports` | A reader's report on a published comment, for the moderation inbox's `abuse` items; the theme has no button for it yet |
 | reactions | `GET /v1/reactions?path=`, `POST /v1/reactions` | `REACTION_TYPES`; one reaction per reader per page per day, the reader a keyed hash of address, page and day; a second is a `409` |
 | corrections | `POST /v1/corrections` | `CORRECTION_CATEGORIES`; only for pages of the site; stored privately with status `new` |
-| contact | `POST /v1/contact` | `CONTACT_CATEGORIES`; stored privately, never published |
+| contact | `POST /v1/contact` | `CONTACT_CATEGORIES`; stored privately, never published; a copy to `CONTACT_TO` when mail is set up |
+| subscriptions | `POST /v1/subscriptions`, `POST /v1/subscriptions/confirm`, `GET`/`PATCH`/`DELETE /v1/subscriptions/:token`, `POST /mail/unsubscribe/:token` | Double opt-in; signed links that stop working when the subscriber leaves; membership not disclosed unless `SUBSCRIPTIONS_DISCLOSE=true`; RFC 8058 one-click unsubscribe; needs `MAIL_PROVIDER` |
+| webmentions | `GET /v1/webmentions?target=`, `POST /webmention` | The W3C receiver answers `202` and then fetches the source, confirms the link and reads title, author, date, kind and excerpt as plain text; only verified mentions are served |
 
-Subscriptions, Webmentions, the moderation inbox, the OpenAPI description,
-the conformance suite and the deployment guide arrive in the next pull
-requests.
+Mail goes through [Resend](https://resend.com) (`MAIL_PROVIDER=resend`, with
+the `RESEND_API_KEY` secret and `MAIL_FROM`) or, for development and the
+conformance suite, into an `outbox` table (`MAIL_PROVIDER=outbox`).
+
+The moderation inbox, the OpenAPI description, the conformance suite and the
+deployment guide arrive in the next pull requests.
 
 ## Run it locally
 

@@ -67,6 +67,11 @@ class Statement {
     this.sql = text;
     this.params = order.length > 0 ? order.map((index) => params[index] ?? null) : params;
     this.raw = { sql, params };
+    // D1 refuses a statement bound with more or fewer values than it numbers; so does this.
+    const wanted = order.length > 0 ? Math.max(...order) + 1 : null;
+    if (params.length > 0 && wanted !== null && params.length !== wanted) {
+      throw new Error(`Wrong number of parameter bindings: the query numbers ${wanted}, got ${params.length}`);
+    }
   }
 
   bind(...params) {

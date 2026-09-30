@@ -28,3 +28,26 @@ FEATURES=comments,reactions,corrections
 # REACTION_TYPES=useful,clear,interesting,needs-clarification
 # CORRECTION_CATEGORIES=mathematical-error,factual-error,citation,code,reproducibility,typo,accessibility,other
 # CONTACT_CATEGORIES=research-collaboration,consulting,speaking,mentoring,reproducibility,media,other
+
+# The site, for the links in emails and the check that a correction report or
+# a Webmention is about one of its pages. Defaults to the first allowed origin.
+# SITE_URL=http://127.0.0.1:4000
+# SITE_NAME=My research notes
+
+# Mail, for subscriptions and the author's copy of contact messages:
+# resend (set RESEND_API_KEY as a secret and MAIL_FROM), or outbox, which keeps
+# every message in the database and sends nothing (development only).
+# MAIL_PROVIDER=outbox
+# RESEND_API_KEY=
+# MAIL_FROM=My research notes <news@example.org>
+# CONTACT_TO=me@example.org
+
+# Subscriptions: the topics the site lists, the page its emails link to, and
+# whether a second sign-up of a subscribed address says so (409).
+# SUBSCRIPTION_TOPICS=new-articles,research-notes,datasets
+# SUBSCRIPTIONS_PAGE=/subscriptions/
+# SUBSCRIPTIONS_DISCLOSE=false
+# SUBSCRIPTIONS_DOUBLE_OPT_IN=true
+
+# Tests only: let the Webmention verifier fetch loopback and private addresses.
+# WEBMENTION_ALLOW_PRIVATE=false
