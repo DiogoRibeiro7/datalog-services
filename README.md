@@ -25,8 +25,19 @@ The core every feature runs through:
 - a SQL store that runs on Cloudflare D1 and, for development and tests, on
   Node's built-in SQLite through the same queries.
 
-The features, the moderation inbox, the OpenAPI description, the conformance
-suite and the deployment guide arrive in the next pull requests.
+And the features readers use:
+
+| Feature | Routes | Notes |
+| --- | --- | --- |
+| comments | `GET /v1/comments?path=`, `POST /v1/comments` | Held for moderation unless `COMMENTS_MODERATION=false`; replies only to a published comment of the same page; at most `COMMENTS_MAX_LINKS` (2) links; the email kept only as a keyed hash |
+| comments (extension) | `POST /v1/comments/:id/reports` | A reader's report on a published comment, for the moderation inbox's `abuse` items; the theme has no button for it yet |
+| reactions | `GET /v1/reactions?path=`, `POST /v1/reactions` | `REACTION_TYPES`; one reaction per reader per page per day, the reader a keyed hash of address, page and day; a second is a `409` |
+| corrections | `POST /v1/corrections` | `CORRECTION_CATEGORIES`; only for pages of the site; stored privately with status `new` |
+| contact | `POST /v1/contact` | `CONTACT_CATEGORIES`; stored privately, never published |
+
+Subscriptions, Webmentions, the moderation inbox, the OpenAPI description,
+the conformance suite and the deployment guide arrive in the next pull
+requests.
 
 ## Run it locally
 

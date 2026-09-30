@@ -19,3 +19,12 @@ FEATURES=comments,reactions,corrections
 # the same pair as dynamic_services.csrf_header and csrf_cookie on the site.
 # CSRF_HEADER=X-CSRF-Token
 # CSRF_COOKIE=csrf_token
+
+# Comments: held for a moderator by default, with at most this many links each.
+# COMMENTS_MODERATION=true
+# COMMENTS_MAX_LINKS=2
+
+# The choices the site offers, as its _config.yml lists them.
+# REACTION_TYPES=useful,clear,interesting,needs-clarification
+# CORRECTION_CATEGORIES=mathematical-error,factual-error,citation,code,reproducibility,typo,accessibility,other
+# CONTACT_CATEGORIES=research-collaboration,consulting,speaking,mentoring,reproducibility,media,other
