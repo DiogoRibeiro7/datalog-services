@@ -1,0 +1,18 @@
+node_modules/
+coverage/
+test-results/
+playwright-report/
+
+# Local state of `wrangler dev` and the Node server.
+.wrangler/
+*.sqlite
+*.sqlite-journal
+*.db
+
+# Secrets: local variables for `wrangler dev` and the Node server. Never commit
+# these; .dev.vars.example lists the names.
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.env
+.env.*
