@@ -1,0 +1,21 @@
+# Local settings for `npm run dev` and `wrangler dev`. Copy to .dev.vars,
+# which Git ignores, and fill in. Nothing here is a real secret; never commit
+# the copy.
+
+# Keys every hash and signature: client addresses, emails, sessions, tokens.
+# Any long random string: `node -e "console.log(crypto.randomUUID()+crypto.randomUUID())"`.
+SECRET_KEY=change-me-to-a-long-random-string
+
+# The site that calls the service, exactly as the browser sends Origin.
+ALLOWED_ORIGINS=http://127.0.0.1:4000
+
+# The features to switch on; capabilities reports the rest as off.
+FEATURES=comments,reactions,corrections
+
+# Optional: rule=count/seconds per client address, over the defaults.
+# RATE_LIMITS=comments=5/600,contact=3/600
+
+# Optional: double-submit CSRF for cookie-authenticated writes (moderation),
+# the same pair as dynamic_services.csrf_header and csrf_cookie on the site.
+# CSRF_HEADER=X-CSRF-Token
+# CSRF_COOKIE=csrf_token
