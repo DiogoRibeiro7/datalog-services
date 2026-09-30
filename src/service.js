@@ -5,16 +5,43 @@
  */
 
 import { createApp } from "./app.js";
+import { rootRoutes as authRootRoutes } from "./auth.js";
+import { readConfig } from "./config.js";
+import { routes as comments } from "./features/comments.js";
+import { rootRoutes as conformanceRootRoutes } from "./features/conformance.js";
+import { routes as contact } from "./features/contact.js";
+import { routes as corrections } from "./features/corrections.js";
+import { routes as moderation } from "./features/moderation.js";
+import { routes as reactions } from "./features/reactions.js";
+import { rootRoutes as subscriptionRootRoutes, routes as subscriptions } from "./features/subscriptions.js";
+import { rootRoutes as webmentionRootRoutes, routes as webmentions } from "./features/webmentions.js";
+import { createMailer, mailProblem } from "./mail.js";
 
 /** The feature routes under /v1, in the order they are matched. */
-export const ROUTES = [];
-
-/** The routes outside /v1. */
-export const ROOT_ROUTES = [];
+export const ROUTES = [...comments, ...reactions, ...corrections, ...contact, ...subscriptions, ...webmentions, ...moderation];
 
 /**
- * @param {Object} options - As createApp's: `db`, `env`, `now`, `log`, `services`
+ * The routes outside /v1: the Webmention receiver, the one-click unsubscribe,
+ * the moderators' sign-in, and the conformance suite's test hooks, which
+ * answer 404 unless CONFORMANCE_TOKEN is set.
+ */
+export const ROOT_ROUTES = [...webmentionRootRoutes, ...subscriptionRootRoutes, ...authRootRoutes, ...conformanceRootRoutes];
+
+/**
+ * @param {Object} options - As createApp's: `db`, `env`, `now`, `log`, and
+ *   `services` (`mailer`, `fetch`), each built from the settings when not given
  */
 export function createService(options) {
-  return createApp({ ...options, routes: ROUTES, rootRoutes: ROOT_ROUTES });
+  const config = options.config || readConfig(options.env);
+  if (config.features.subscriptions) {
+    const problem = mailProblem(config.env);
+    if (problem && !options.services?.mailer) {
+      throw new Error(problem);
+    }
+  }
+  const services = { ...(options.services || {}) };
+  if (services.mailer === undefined) {
+    services.mailer = createMailer(config.env, { db: options.db, fetch: services.fetch, now: options.now });
+  }
+  return createApp({ ...options, config, services, routes: ROUTES, rootRoutes: ROOT_ROUTES });
 }

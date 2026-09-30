@@ -19,3 +19,47 @@ FEATURES=comments,reactions,corrections
 # the same pair as dynamic_services.csrf_header and csrf_cookie on the site.
 # CSRF_HEADER=X-CSRF-Token
 # CSRF_COOKIE=csrf_token
+
+# Comments: held for a moderator by default, with at most this many links each.
+# COMMENTS_MODERATION=true
+# COMMENTS_MAX_LINKS=2
+
+# The choices the site offers, as its _config.yml lists them.
+# REACTION_TYPES=useful,clear,interesting,needs-clarification
+# CORRECTION_CATEGORIES=mathematical-error,factual-error,citation,code,reproducibility,typo,accessibility,other
+# CONTACT_CATEGORIES=research-collaboration,consulting,speaking,mentoring,reproducibility,media,other
+
+# The site, for the links in emails and the check that a correction report or
+# a Webmention is about one of its pages. Defaults to the first allowed origin.
+# SITE_URL=http://127.0.0.1:4000
+# SITE_NAME=My research notes
+
+# Mail, for subscriptions and the author's copy of contact messages:
+# resend (set RESEND_API_KEY as a secret and MAIL_FROM), or outbox, which keeps
+# every message in the database and sends nothing (development only).
+# MAIL_PROVIDER=outbox
+# RESEND_API_KEY=
+# MAIL_FROM=My research notes <news@example.org>
+# CONTACT_TO=me@example.org
+
+# Subscriptions: the topics the site lists, the page its emails link to, and
+# whether a second sign-up of a subscribed address says so (409).
+# SUBSCRIPTION_TOPICS=new-articles,research-notes,datasets
+# SUBSCRIPTIONS_PAGE=/subscriptions/
+# SUBSCRIPTIONS_DISCLOSE=false
+# SUBSCRIPTIONS_DOUBLE_OPT_IN=true
+
+# Tests only: let the Webmention verifier fetch loopback and private addresses.
+# WEBMENTION_ALLOW_PRIVATE=false
+
+# Moderation: sign-in with a GitHub OAuth app whose callback is
+# <service>/auth/callback. The secret is a secret: `wrangler secret put
+# GITHUB_CLIENT_SECRET` on Cloudflare, this file locally.
+# GITHUB_CLIENT_ID=
+# GITHUB_CLIENT_SECRET=
+# MODERATORS=your-github-login
+# SESSION_HOURS=8
+# When the service shares a registrable domain with the site (api.example.org
+# for example.org), keep the session first-party:
+# COOKIE_DOMAIN=.example.org
+# COOKIE_SAMESITE=Lax

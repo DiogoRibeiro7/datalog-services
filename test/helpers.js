@@ -44,8 +44,19 @@ export async function makeApp(options = {}) {
     env: { ...BASE_ENV, ...(options.env || {}) },
     log: (level, event, fields) => logs.push({ level, event, ...fields })
   };
-  const app = options.routes ? createApp(settings) : createService(settings);
-  return { app, db, logs };
+  const inner = options.routes ? createApp(settings) : createService(settings);
+  // Work a handler hands to waitUntil, such as verifying a Webmention, is kept so a test can wait for it.
+  const pending = [];
+  const app = {
+    config: inner.config,
+    fetch: (request, context = {}) => inner.fetch(request, { waitUntil: (promise) => pending.push(promise), ...context })
+  };
+  const settle = async () => {
+    while (pending.length > 0) {
+      await pending.shift();
+    }
+  };
+  return { app, db, logs, settle };
 }
 
 /**
@@ -65,6 +76,9 @@ export async function call(app, method, path, options = {}) {
   }
   const request = new Request(`https://api.example${path}`, { method, headers, body });
   const response = await app.fetch(request, { clientIp: options.ip || "203.0.113.7" });
+  if (options.settle) {
+    await options.settle();
+  }
   const text = await response.text();
   let json = null;
   if (text) {

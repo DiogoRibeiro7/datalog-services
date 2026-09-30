@@ -1,0 +1,39 @@
+# The service as a Cloudflare Worker with a D1 database. docs/deploy-cloudflare.md
+# walks through it. Nothing secret belongs in this file: SECRET_KEY,
+# GITHUB_CLIENT_SECRET and RESEND_API_KEY are set with `wrangler secret put`,
+# and `wrangler dev` reads local values from .dev.vars, which Git ignores.
+
+name = "datalog-services"
+main = "src/worker.js"
+compatibility_date = "2026-09-01"
+
+# The retention clean-up (src/retention.js), once a day at 03:17 UTC.
+[triggers]
+crons = ["17 3 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "datalog-services"
+# Replace with the id `wrangler d1 create datalog-services` prints.
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+[observability]
+enabled = true
+
+# Public settings. Anything here is visible to whoever can read this file, which
+# is fine for these and never for a credential.
+[vars]
+# The site's origin, exactly as the browser sends it, and the features to offer.
+ALLOWED_ORIGINS = "https://example.org"
+FEATURES = "comments,reactions,corrections"
+# SITE_URL = "https://example.org"          # when the site lives under a path
+# SITE_NAME = "My research notes"
+# RATE_LIMITS = "comments=5/600,corrections=5/600"
+# COMMENTS_MODERATION = "true"
+# MODERATORS = "your-github-login"
+# GITHUB_CLIENT_ID = ""
+# MAIL_PROVIDER = "resend"
+# MAIL_FROM = "My research notes <news@example.org>"
+# CONTACT_TO = "you@example.org"
+# SUBSCRIPTION_TOPICS = "new-articles,research-notes,datasets"

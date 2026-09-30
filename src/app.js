@@ -135,6 +135,7 @@ export function createApp(options) {
     let scope = null;
     if (route.write) {
       const text = await request.text();
+      ctx.rawBody = text;
       ctx.body = route.body === "none" ? null : readJsonText(request, text, route.body === "optional");
       key = idempotency.readKey(request);
       if (key) {

@@ -25,8 +25,74 @@ The core every feature runs through:
 - a SQL store that runs on Cloudflare D1 and, for development and tests, on
   Node's built-in SQLite through the same queries.
 
-The features, the moderation inbox, the OpenAPI description, the conformance
-suite and the deployment guide arrive in the next pull requests.
+And the features readers use:
+
+| Feature | Routes | Notes |
+| --- | --- | --- |
+| comments | `GET /v1/comments?path=`, `POST /v1/comments` | Held for moderation unless `COMMENTS_MODERATION=false`; replies only to a published comment of the same page; at most `COMMENTS_MAX_LINKS` (2) links; the email kept only as a keyed hash |
+| comments (extension) | `POST /v1/comments/:id/reports` | A reader's report on a published comment, for the moderation inbox's `abuse` items; the theme has no button for it yet |
+| reactions | `GET /v1/reactions?path=`, `POST /v1/reactions` | `REACTION_TYPES`; one reaction per reader per page per day, the reader a keyed hash of address, page and day; a second is a `409` |
+| corrections | `POST /v1/corrections` | `CORRECTION_CATEGORIES`; only for pages of the site; stored privately with status `new` |
+| contact | `POST /v1/contact` | `CONTACT_CATEGORIES`; stored privately, never published; a copy to `CONTACT_TO` when mail is set up |
+| subscriptions | `POST /v1/subscriptions`, `POST /v1/subscriptions/confirm`, `GET`/`PATCH`/`DELETE /v1/subscriptions/:token`, `POST /mail/unsubscribe/:token` | Double opt-in; signed links that stop working when the subscriber leaves; membership not disclosed unless `SUBSCRIPTIONS_DISCLOSE=true`; RFC 8058 one-click unsubscribe; needs `MAIL_PROVIDER` |
+| webmentions | `GET /v1/webmentions?target=`, `POST /webmention` | The W3C receiver answers `202` and then fetches the source, confirms the link and reads title, author, date, kind and excerpt as plain text; only verified mentions are served |
+
+Mail goes through [Resend](https://resend.com) (`MAIL_PROVIDER=resend`, with
+the `RESEND_API_KEY` secret and `MAIL_FROM`) or, for development and the
+conformance suite, into an `outbox` table (`MAIL_PROVIDER=outbox`).
+
+And the one feature for the site's owner:
+
+| Feature | Routes | Notes |
+| --- | --- | --- |
+| moderation | `GET /v1/moderation/items`, `POST /v1/moderation/items/:id/actions` | The queue of pending comments, open correction reports and readers' reports on comments, with the theme's filters and a cursor; the actions of the theme's table, a 409 for any other; every action recorded with the moderator the session names |
+| sign-in | `GET /auth/login`, `GET /auth/callback`, `POST /auth/logout` | Moderators sign in with GitHub; the logins in `MODERATORS` may moderate, anyone else gets a 403 |
+
+The session is a cookie the service signs (`HttpOnly; Secure`, eight hours,
+`SameSite=None` since the site is usually on another domain). A moderation
+write must come from the site's origin and, with `CSRF_HEADER` and
+`CSRF_COOKIE` set, echo the CSRF cookie in the header. When the site and the
+service share a registrable domain, set `COOKIE_DOMAIN` and
+`COOKIE_SAMESITE=Lax`: browsers that block third-party cookies (Safari,
+Firefox's strict mode) then keep the session.
+
+## The contract, described and checked
+
+- **[`openapi/datalog-services.v1.yaml`](openapi/datalog-services.v1.yaml)**:
+  the contract as OpenAPI 3.1: every route, status, header and body. A test
+  keeps it valid and holds it to the routes the service has, in both
+  directions.
+- **[`conformance/`](conformance/README.md)**: a suite that checks any
+  implementation at a base URL against the contract and validates each answer
+  against the OpenAPI schemas. It passes against this service, with every
+  recommended check too, and fails against `test/fixtures/broken-service.js`,
+  naming each of its faults; `test/conformance.test.js` runs both.
+
+```sh
+npm run conformance -- --base-url https://api.example.org --origin https://example.org
+```
+
+## Deploy it
+
+**[docs/deploy-cloudflare.md](docs/deploy-cloudflare.md)** deploys the service
+as a Cloudflare Worker with a D1 database, on Cloudflare's free plan, with no
+server to run. It covers the secrets, the site's origin, the moderators'
+sign-in, mail, spam controls, retention and deletion, and what to put in the
+site's `dynamic_services` afterwards. `src/worker.js` is the entry point, and
+`wrangler.toml` holds the public settings and never a secret. A daily cron
+trigger forgets what the retention settings say.
+
+Two scripts exercise the deployment target on this machine, with nothing
+deployed:
+
+```sh
+npm run conformance:worker                             # the suite against the Worker in workerd, with a local D1
+npm run e2e:theme -- --theme ../analytics-blog-jekyll  # the theme's demo against it, in a browser
+```
+
+The second builds the theme's own demo with only `dynamic_services.base_url`
+pointing at the Worker. It then posts a comment, approves it, reacts and sends
+a correction report through Chromium.
 
 ## Run it locally
 
@@ -55,7 +121,8 @@ gets, in order: a request id, the origin check, the preflight answer, its
 route and the feature switch, for a write the JSON body and the idempotency
 key, the rate limit, and the handler.
 
-Every setting is an environment variable; `.dev.vars.example` lists them.
+Every setting is an environment variable; `.dev.vars.example` lists them,
+and the deployment guide explains them.
 Secrets never go in the repository: locally they live in `.dev.vars`, which
 Git ignores.
 

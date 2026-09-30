@@ -18,6 +18,7 @@ export const DEFAULT_RATE_LIMITS = {
   corrections: "5/600",
   contact: "3/600",
   subscriptions: "5/600",
+  "subscriptions-address": "3/3600",
   "subscriptions-token": "30/600",
   "comment-reports": "5/600",
   moderation: "300/600",

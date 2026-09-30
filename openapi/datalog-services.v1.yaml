@@ -1,0 +1,895 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: DataLog dynamic services
+  version: "1"
+  summary: The HTTP contract between a DataLog site and its backend.
+  description: |
+    What a DataLog site's pages call for comments, reactions, correction
+    reports, the contact form, newsletter subscriptions, Webmentions and the
+    moderation inbox. The theme's browser client is
+    `assets/js/dynamic-services/client.js`; the prose contract is
+    `docs/dynamic-services.md`, `docs/components.md` and `docs/moderation.md`
+    in the theme's repository.
+
+    Every path under `/v1` answers JSON. Every answer carries `X-Request-Id`,
+    and every failure the error body below, with the same id in
+    `request_id`. A write may carry `Idempotency-Key`: a retry with the same
+    key and body gets the first answer again (`Idempotent-Replayed: true`),
+    the same key with another body is a 422, and one still in flight a 409.
+    A browser origin the service does not serve is refused with a 403.
+
+    The conformance suite in this repository checks an implementation
+    against this document, and validates every answer it reads against the
+    schemas below.
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: https://api.example.org
+    description: A deployment; the site's `dynamic_services.base_url`.
+tags:
+  - name: discovery
+  - name: comments
+  - name: reactions
+  - name: corrections
+  - name: contact
+  - name: subscriptions
+  - name: webmentions
+  - name: moderation
+  - name: sign-in
+    description: The reference service's moderator sign-in. Another implementation may authenticate moderators any way it likes.
+  - name: conformance hooks
+    description: |
+      Test-only routes the conformance suite uses when given a token, so it
+      can reach the checks that need a moderator session, a mailbox or a
+      verified Webmention. Not part of the contract a site relies on; the
+      reference service serves them only with `CONFORMANCE_TOKEN` set.
+
+paths:
+  /v1/capabilities:
+    get:
+      tags: [discovery]
+      operationId: getCapabilities
+      summary: What the service offers.
+      description: |
+        The client fetches this once per page. An `api_version` other than the
+        one the site expects is a version mismatch; a feature missing or
+        `false` here is unsupported.
+      responses:
+        "200":
+          description: The service's version and features.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/X-Request-Id" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Capabilities" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /v1/health:
+    get:
+      tags: [discovery]
+      operationId: getHealth
+      summary: Whether the service can serve. Optional in the contract.
+      responses:
+        "200":
+          description: Healthy.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/X-Request-Id" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+        "503": { $ref: "#/components/responses/Error" }
+
+  /v1/comments:
+    get:
+      tags: [comments]
+      operationId: listComments
+      summary: The published comments of a page, oldest first.
+      parameters:
+        - $ref: "#/components/parameters/Path"
+      responses:
+        "200":
+          description: Approved comments only, with public author fields only.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/X-Request-Id" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommentList" }
+        "422": { $ref: "#/components/responses/Invalid" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      tags: [comments]
+      operationId: createComment
+      summary: Posts a comment or a reply.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NewComment" }
+      responses:
+        "201":
+          description: Published at once.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/X-Request-Id" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommentPublished" }
+        "202":
+          description: Held for moderation; shown to its author with a badge.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/X-Request-Id" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CommentHeld" }
+        "422": { $ref: "#/components/responses/Invalid" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /v1/comments/{id}/reports:
+    post:
+      tags: [comments]
+      operationId: reportComment
+      summary: A reader reports a published comment. An extension of the reference service.
+      description: |
+        Not called by the theme yet. It is how the moderation inbox's `abuse`
+        items come to exist in the reference service.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 3, maxLength: 1000 }
+      responses:
+        "202":
+          description: Received.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Received" }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Invalid" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /v1/reactions:
+    get:
+      tags: [reactions]
+      operationId: getReactions
+      summary: The counts of a page's reactions.
+      parameters:
+        - $ref: "#/components/parameters/Path"
+      responses:
+        "200":
+          description: A type absent from `counts` has none.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/X-Request-Id" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReactionCounts" }
+        "422": { $ref: "#/components/responses/Invalid" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      tags: [reactions]
+      operationId: react
+      summary: Counts a reader's reaction.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path, reaction]
+              properties:
+                path: { type: string, pattern: "^/" }
+                reaction: { type: string }
+      responses:
+        "201":
+          description: Counted; the new counts let the strip update.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/X-Request-Id" }
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ReactionCounts"
+                  - type: object
+                    required: [reaction]
+                    properties:
+                      reaction: { type: string }
+        "409":
+          description: This reader's reaction is already counted; the theme shows it as such.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/Invalid" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /v1/corrections:
+    post:
+      tags: [corrections]
+      operationId: reportCorrection
+      summary: A private report that an article is wrong.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NewCorrection" }
+      responses:
+        "200": { $ref: "#/components/responses/Received" }
+        "202": { $ref: "#/components/responses/Received" }
+        "422": { $ref: "#/components/responses/Invalid" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /v1/contact:
+    post:
+      tags: [contact]
+      operationId: sendContactMessage
+      summary: A private message to the site's author.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NewContactMessage" }
+      responses:
+        "200": { $ref: "#/components/responses/Received" }
+        "202": { $ref: "#/components/responses/Received" }
+        "422": { $ref: "#/components/responses/Invalid" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /v1/subscriptions:
+    post:
+      tags: [subscriptions]
+      operationId: subscribe
+      summary: Signs an address up.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+                topics: { type: array, items: { type: string } }
+                source_url: { type: string, format: uri }
+                locale: { type: string }
+      responses:
+        "201":
+          description: Confirmed at once (no double opt-in).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubscriptionStatus" }
+        "202":
+          description: A confirmation email was sent. A service that does not disclose membership answers this for a subscribed address too.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubscriptionStatus" }
+        "409":
+          description: Already subscribed, from a service that discloses it.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/Invalid" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /v1/subscriptions/confirm:
+    post:
+      tags: [subscriptions]
+      operationId: confirmSubscription
+      summary: The confirmation link's token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        "200":
+          description: Confirmed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubscriptionStatus" }
+        "404": { $ref: "#/components/responses/LinkNotValid" }
+        "410": { $ref: "#/components/responses/LinkNotValid" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /v1/subscriptions/{token}:
+    parameters:
+      - name: token
+        in: path
+        required: true
+        description: The manage token from the subscriber's email.
+        schema: { type: string }
+    get:
+      tags: [subscriptions]
+      operationId: getSubscription
+      responses:
+        "200":
+          description: The subscription.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Subscription" }
+        "404": { $ref: "#/components/responses/LinkNotValid" }
+        "410": { $ref: "#/components/responses/LinkNotValid" }
+        default: { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [subscriptions]
+      operationId: updateSubscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [topics]
+              properties:
+                topics: { type: array, items: { type: string } }
+      responses:
+        "200":
+          description: The subscription as it now is.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Subscription" }
+        "404": { $ref: "#/components/responses/LinkNotValid" }
+        "410": { $ref: "#/components/responses/LinkNotValid" }
+        "422": { $ref: "#/components/responses/Invalid" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [subscriptions]
+      operationId: unsubscribe
+      responses:
+        "200": { description: Unsubscribed. }
+        "204": { description: Unsubscribed. }
+        "404": { $ref: "#/components/responses/LinkNotValid" }
+        "410": { $ref: "#/components/responses/LinkNotValid" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /v1/webmentions:
+    get:
+      tags: [webmentions]
+      operationId: listWebmentions
+      summary: The verified mentions of a page, newest first.
+      parameters:
+        - name: target
+          in: query
+          required: true
+          description: The page's canonical URL.
+          schema: { type: string, format: uri }
+      responses:
+        "200":
+          description: Mentions.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/X-Request-Id" }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [mentions]
+                properties:
+                  mentions:
+                    type: array
+                    items: { $ref: "#/components/schemas/Webmention" }
+        "422": { $ref: "#/components/responses/Invalid" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /v1/moderation/items:
+    get:
+      tags: [moderation]
+      operationId: listModerationItems
+      summary: The moderation queue, or what the filters select.
+      description: Authenticated by the service on every request; the page protects nothing.
+      parameters:
+        - { name: type, in: query, schema: { type: string, enum: [comment, correction, abuse] } }
+        - { name: status, in: query, description: "Without it, the queue of what awaits a decision.", schema: { type: string } }
+        - { name: path, in: query, schema: { type: string } }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: since, in: query, schema: { type: string } }
+        - { name: q, in: query, schema: { type: string } }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: A page of items.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/ModerationItem" }
+                  next_cursor: { type: string }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Invalid" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /v1/moderation/items/{id}/actions:
+    post:
+      tags: [moderation]
+      operationId: actOnModerationItem
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: { type: string, enum: [approve, spam, hide, delete, reviewed, accept, reject, resolve, dismiss] }
+                note: { type: string }
+                link: { type: string, format: uri, description: Required with resolve. }
+      responses:
+        "200":
+          description: The item as it now stands, history included.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [item]
+                properties:
+                  item: { $ref: "#/components/schemas/ModerationItem" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409":
+          description: The item's status does not allow the action; someone may have acted first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/Invalid" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /webmention:
+    post:
+      tags: [webmentions]
+      operationId: receiveWebmention
+      summary: The W3C Webmention receiver the site advertises.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [source, target]
+              properties:
+                source: { type: string, format: uri }
+                target: { type: string, format: uri }
+      responses:
+        "202":
+          description: Accepted; the source is checked before anything is shown.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { const: accepted }
+                  id: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /mail/unsubscribe/{token}:
+    post:
+      tags: [subscriptions]
+      operationId: oneClickUnsubscribe
+      summary: RFC 8058 one-click unsubscribe, named by List-Unsubscribe in the emails.
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: "Unsubscribed, or nothing to do; the answer is the same either way." }
+
+  /auth/login:
+    get:
+      tags: [sign-in]
+      operationId: signIn
+      parameters:
+        - { name: return_to, in: query, description: A page of the site to come back to., schema: { type: string, format: uri } }
+      responses:
+        "302": { description: To GitHub's authorization page. }
+        "400": { $ref: "#/components/responses/Error" }
+  /auth/callback:
+    get:
+      tags: [sign-in]
+      operationId: signInCallback
+      responses:
+        "302": { description: "Back to the page, with the session cookie." }
+        "400": { $ref: "#/components/responses/Error" }
+  /auth/logout:
+    post:
+      tags: [sign-in]
+      operationId: signOut
+      responses:
+        "204": { description: Signed out. }
+
+  /_conformance/reset:
+    post:
+      tags: [conformance hooks]
+      operationId: conformanceReset
+      security: [{ conformanceToken: [] }]
+      responses:
+        "204": { description: Every table emptied. }
+  /_conformance/session:
+    post:
+      tags: [conformance hooks]
+      operationId: conformanceSession
+      security: [{ conformanceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [login]
+              properties:
+                login: { type: string }
+      responses:
+        "200":
+          description: The Cookie header of a signed-in session for the login.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cookie]
+                properties:
+                  cookie: { type: string }
+  /_conformance/outbox:
+    get:
+      tags: [conformance hooks]
+      operationId: conformanceOutbox
+      security: [{ conformanceToken: [] }]
+      parameters:
+        - { name: to, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The mail kept for an address, oldest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [messages]
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      type: object
+                      required: [to, subject, text]
+                      properties:
+                        to: { type: string }
+                        subject: { type: string }
+                        text: { type: string }
+                        headers: { type: object }
+  /_conformance/webmentions:
+    post:
+      tags: [conformance hooks]
+      operationId: conformanceSeedWebmention
+      security: [{ conformanceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Webmention" }
+      responses:
+        "201": { description: Stored as verified. }
+
+components:
+  securitySchemes:
+    moderatorSession:
+      type: apiKey
+      in: cookie
+      name: datalog_session
+      description: The reference service's session; any cookie or proxy authentication satisfies the contract.
+    conformanceToken:
+      type: http
+      scheme: bearer
+
+  headers:
+    X-Request-Id:
+      description: The request's id, shown to the reader as "Reference" and logged by the service.
+      schema: { type: string, minLength: 1 }
+    Retry-After:
+      description: Seconds to wait before trying again.
+      schema: { type: string, pattern: "^[0-9]+$" }
+
+  parameters:
+    Path:
+      name: path
+      in: query
+      required: true
+      description: The page's path on the site.
+      schema: { type: string, pattern: "^/" }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      description: A retry with the same key and body is answered from the first result.
+      schema: { type: string, minLength: 1, maxLength: 255 }
+
+  responses:
+    Error:
+      description: A failure, in the contract's error body.
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/X-Request-Id" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Invalid:
+      description: Some fields need a correction; `error.errors` names them.
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/X-Request-Id" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/InvalidError" }
+    RateLimited:
+      description: Too many requests; wait for Retry-After.
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/X-Request-Id" }
+        Retry-After: { $ref: "#/components/headers/Retry-After" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    LinkNotValid:
+      description: The token is not valid (404) or not valid any more (410).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Received:
+      description: Received; stored privately.
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/X-Request-Id" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Received" }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code]
+          properties:
+            code: { type: string, minLength: 1 }
+            message: { type: string }
+            errors:
+              type: object
+              additionalProperties: { type: string }
+        request_id: { type: string }
+    InvalidError:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              required: [errors]
+              properties:
+                errors:
+                  type: object
+                  minProperties: 1
+                  additionalProperties: { type: string }
+    Capabilities:
+      type: object
+      required: [api_version, features]
+      properties:
+        api_version:
+          description: The version, as "1" (a leading "v" is tolerated by the theme).
+          type: [string, number]
+        features:
+          type: object
+          additionalProperties: { type: boolean }
+          properties:
+            comments: { type: boolean }
+            reactions: { type: boolean }
+            corrections: { type: boolean }
+            contact: { type: boolean }
+            subscriptions: { type: boolean }
+            webmentions: { type: boolean }
+            moderation: { type: boolean }
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string }
+    Received:
+      type: object
+      properties:
+        status: { type: string }
+        id: { type: string }
+    PublicAuthor:
+      description: What the service may say about a comment's author. Never the email.
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name: { type: string }
+        url: { type: string, pattern: "^https?://" }
+    Comment:
+      type: object
+      required: [id, parent_id, author, body, created_at]
+      properties:
+        id: { type: string }
+        parent_id: { type: [string, "null"] }
+        author: { $ref: "#/components/schemas/PublicAuthor" }
+        body: { type: string }
+        created_at: { type: string, format: date-time }
+    CommentList:
+      type: object
+      required: [comments]
+      properties:
+        comments:
+          type: array
+          items: { $ref: "#/components/schemas/Comment" }
+    NewComment:
+      type: object
+      required: [path, author, body]
+      properties:
+        path: { type: string, pattern: "^/" }
+        parent_id: { type: [string, "null"] }
+        author:
+          type: object
+          required: [name]
+          properties:
+            name: { type: string }
+            email: { type: string, format: email }
+            url: { type: string, format: uri }
+        body: { type: string }
+    CommentPublished:
+      type: object
+      required: [comment, status]
+      properties:
+        comment: { $ref: "#/components/schemas/Comment" }
+        status: { const: published }
+    CommentHeld:
+      type: object
+      required: [comment, status]
+      properties:
+        comment:
+          type: object
+          required: [id, author, body]
+          properties:
+            id: { type: string }
+            parent_id: { type: [string, "null"] }
+            author: { $ref: "#/components/schemas/PublicAuthor" }
+            body: { type: string }
+            status: { const: pending }
+        status: { const: pending }
+    ReactionCounts:
+      type: object
+      required: [counts]
+      properties:
+        counts:
+          type: object
+          additionalProperties: { type: integer, minimum: 0 }
+    NewCorrection:
+      type: object
+      required: [category, message, article]
+      properties:
+        category: { type: string }
+        section: { type: string }
+        message: { type: string, minLength: 20 }
+        contact_email: { type: string, format: email }
+        quote: { type: string }
+        article:
+          type: object
+          required: [url]
+          properties:
+            url: { type: string, format: uri }
+            title: { type: string }
+    NewContactMessage:
+      type: object
+      required: [category, name, email, subject, message]
+      properties:
+        category: { type: string }
+        name: { type: string }
+        email: { type: string, format: email }
+        affiliation: { type: string }
+        subject: { type: string }
+        message: { type: string, minLength: 20 }
+        source_url: { type: string, format: uri }
+    SubscriptionStatus:
+      type: object
+      properties:
+        status: { type: string, enum: [pending, confirmed, subscribed] }
+    Subscription:
+      type: object
+      required: [status, topics]
+      properties:
+        status: { type: string }
+        topics: { type: array, items: { type: string } }
+    Webmention:
+      type: object
+      required: [source, target]
+      properties:
+        id: { type: string }
+        source: { type: string, pattern: "^https?://" }
+        target: { type: string, format: uri }
+        type: { type: string, enum: [mention, reply, repost, like] }
+        author:
+          type: object
+          properties:
+            name: { type: string }
+            url: { type: string, pattern: "^https?://" }
+        title: { type: string }
+        excerpt: { type: string }
+        published_at: { type: string, format: date-time }
+        verified: { type: boolean }
+    HistoryStep:
+      type: object
+      required: [action, at, moderator]
+      properties:
+        action: { type: string }
+        at: { type: string, format: date-time }
+        moderator: { type: string }
+        note: { type: string }
+        link: { type: string, format: uri }
+    ModerationItem:
+      type: object
+      required: [id, type, status, created_at, history]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [comment, correction, abuse] }
+        status: { type: string }
+        created_at: { type: string, format: date-time }
+        path: { type: string }
+        title: { type: string }
+        author:
+          type: object
+          properties:
+            name: { type: string }
+            email: { type: string }
+        body: { type: string }
+        message: { type: string }
+        category: { type: string }
+        section: { type: string }
+        quote: { type: string }
+        reason: { type: string }
+        context:
+          type: object
+          properties:
+            parent:
+              type: object
+              properties:
+                author:
+                  type: object
+                  properties:
+                    name: { type: string }
+                body: { type: string }
+        resolution:
+          type: object
+          properties:
+            url: { type: string, format: uri }
+        history:
+          type: array
+          items: { $ref: "#/components/schemas/HistoryStep" }
